@@ -1,0 +1,29 @@
+{
+    "arduino.path": "C:\\Program Files\\Arduino IDE",
+    "arduino.libraryPath": [
+        "C:\\Users\\ServerManager\\Documents\\Arduino\\libraries",
+        "C:\\Program Files\\Arduino IDE\\libraries"
+    ],
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "C:/Users/ServerManager/Documents/Arduino/libraries/**",
+                "C:/Program Files/Arduino IDE/libraries/**",
+                "C:/Program Files/Arduino IDE/hardware/arduino/avr/cores/arduino",
+                "C:/Program Files/Arduino IDE/hardware/arduino/avr/variants/standard"
+            ],
+            "defines": [
+                "ARDUINO=10819",
+                "ARDUINO_AVR_UNO",
+                "ARDUINO_ARCH_AVR"
+            ],
+            "compilerPath": "C:/Program Files/Arduino IDE/hardware/tools/avr/bin/avr-g++.exe",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "intelliSenseMode": "gcc-x86"
+        }
+    ],
+    "version": 4
+}
