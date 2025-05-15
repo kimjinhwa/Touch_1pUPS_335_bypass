@@ -12,6 +12,23 @@
 #include "watchdog.cpp"
 #include <DueFlashStorage.h>
 #include <math.h>
+//#include "Arduino_GFX.h"
+
+#define GREEN 33, 184, 3
+#define LIGHT_GRAY 235, 235, 235
+#define DARK_GRAY 97, 97, 97
+#define DARK_GRAY_2 30, 30, 30 
+#define MIDDLE_GRAY 90, 90, 90
+#define RED 255, 0, 0
+#define SOFT_GRAY 60, 60, 60
+#define YELLOW 255, 255, 0
+#define ORANGE 248, 111, 30
+#define PURPLE 128, 0, 128
+#define WHITE 255, 255, 255
+#define BLUEGREEN 22, 108, 171 
+#define BLACK 0, 0, 0
+
+
 
 #if defined(__AVR__)
 #include <avr/pgmspace.h>
@@ -174,7 +191,7 @@ char stCurrent[4] = "";
 int stCurrentLen = 0;
 // char name_test[26]="Input current limit fault";
 int x, y, i, j, keypad_set;
-int alarm_count, main_system_check1, main_system_check2;
+int alarm_count, main_system_check1, main_system_check2,main_system_check3;
 int page_num = 0;
 int serial_length;
 int timer300ms, timer50ms, timer1500ms, timer1000ms;
@@ -242,6 +259,131 @@ unsigned char auchCRCLo[] = {																  // Table of CRC values for low. o
 	0x48, 0x49, 0x89, 0x4B, 0x8B, 0x8A, 0x4A, 0x4E, 0x8E, 0x8F, 0x4F, 0x8D, 0x4D, 0x4C, 0x8C, // 225-239
 	0x44, 0x84, 0x85, 0x45, 0x87, 0x47, 0x46, 0x86, 0x82, 0x42, 0x43, 0x83, 0x41, 0x81, 0x80, // 240-254
 	0x40};
+
+/*
+10.0 	D00 : CONVERTER RUN/STOP STATE(0: STOP, 1: RUN)		
+10.1 	D01 : DC/DC CONVERTER RUN/STOP STATE( 0: STOP, 1: RUN)		
+10.2 	D02 : INVERTER RUN/STOP STATE( 0: STOP, 1: RUN) 		
+10.3 	D03 : TRANSFER RUN/STOP STATE( 0: STOP, 1: RUN)		
+10.4 	D04 : Battery Discharging TEST MODE( 0: STOP, 1: RUN)		
+*/
+struct ups_converter_status {
+    union {
+        struct {
+            unsigned int converter_run_stop_state : 1;  // 1비트 할당
+            unsigned int dc_dc_converter_run_stop_state : 1;  // 1비트 할당
+            unsigned int inverter_run_stop_state : 1;  // 1비트 할당
+            unsigned int transfer_run_stop_state : 1;  // 1비트 할당	
+            unsigned int battery_discharging_test_mode : 1;  // 1비트 할당
+        };
+        unsigned int value;  // 전체 값으로 접근
+    };
+};
+/*
+11.0 	D00 : Input_OC(H/W Latch) - (1 : Fault, 0 : Normal)		
+11.1 	D01 : Inverter OC(H/W Latch) - (1 : Fault, 0 : Normal)		
+11.2 	D02 : Vdc_OV(H/W Latch) - (1 : Fault, 0 : Normal)		
+11.3 	D03 : CONVERTER OFF - (1 : Fault, 0 : Normal)		
+11.4 	D04 : DC/DC OFF - (1 : Fault, 0 : Normal)		
+11.5 	D05 : Conv_GDU - (1 : Fault, 0 : Normal)		
+11.6 	D06 : Inv_GDU - (1 : Fault, 0 : Normal)		
+11.7 	D07 : GDU_DCDC - (1 : Fault, 0 : Normal)		
+11.8 	D08 : Com_GDU - (1 : Fault, 0 : Normal)		
+11.9 	D09 : Earth fault - (1 : Fault, 0 : Normal)		
+11.10 	D10 : BAT_FUSE - (1 : Fault, 0 : Normal)		
+11.11 	D11 : Module OT - (1 : Fault, 0 : Normal)		
+11.12 	D12 : SNMP Buzzer On/Off - (Toggle)		
+11.13 	D13 : EEPROM Error - (1 : Fault, 0 : Normal)		
+11.14 	D14 : Bypass Failure 
+*/
+struct ups_hw_status {
+    union {
+        struct {
+            unsigned int Input_OC : 1;  // 1비트 할당
+            unsigned int Inverter_OC : 1;  // 1비트 할당
+            unsigned int Vdc_OV : 1;  // 1비트 할당
+            unsigned int converter_off : 1;  // 1비트 할당	
+            unsigned int dc_dc_off : 1;  // 1비트 할당
+            unsigned int conv_gdu : 1;  // 1비트 할당
+            unsigned int inv_gdu : 1;  // 1비트 할당
+            unsigned int gdu_dcdc : 1;  // 1비트 할당
+            unsigned int com_gdu : 1;  // 1비트 할당
+            unsigned int earth_fault : 1;  // 1	비트 할당
+            unsigned int bat_fuse : 1;  // 1비트 할당
+            unsigned int module_ot : 1;  // 1비트 할당
+            unsigned int snmp_buzzer_on_off : 1;  // 1비트 할당
+            unsigned int eeprom_error : 1;  // 1비트 할당
+            unsigned int bypass_failure : 1;  // 1비트 할당
+        };
+        unsigned int value;  // 전체 값으로 접근
+    };
+};
+/*
+12.0 	D00 : Input current limit fault(LATCH FAULT)		
+12.1 	D01 : Vdc_link OV limit fault(LATCH FAULT)		
+12.2 	D02 : Vdc_link UV limit fault(2[sec] Hold)		
+12.3 	D03 : input under voltage fault(Hysterisis BAND)		
+12.4 	D04 : input over voltage fault(Hysterisis BAND)		
+12.5 	D05 : Input Frequency fault(3Hz)		
+12.6 	D06 : Inverter Frequency fault(3Hz)		
+12.7 	D07 : utility line failure(INPUT VOLT * 0.5)		
+12.8 	D08 : battery current limit fault(LATCH FAULT)		
+12.9 	D09 : Battery OV limit fault(LATCH FAULT)		
+12.10 	D10 : battery UV limit fault(2[sec] hold)		
+12.11 	D11 : inverter output voltage fault(LATCH FAULT)		
+12.12 	D12 : Inverter over load fault		
+12.13 	D13 : Inverter over load over time		
+12.15 	D15 : Bypass mode		
+
+*/
+struct ups_operation_fault_status	{
+    union {
+        struct {
+            unsigned int Input_current_limit_fault : 1;  // 1비트 할당
+            unsigned int Vdc_link_OV_limit_fault : 1;  // 1비트 할당
+            unsigned int Vdc_link_UV_limit_fault : 1;  // 1비트 할당
+            unsigned int input_under_voltage_fault : 1;  // 1비트 할당
+            unsigned int input_over_voltage_fault : 1;  // 1비트 할당
+            unsigned int Input_Frequency_fault : 1;  // 1비트 할당
+            unsigned int Inverter_Frequency_fault : 1;  // 1비트 할당
+            unsigned int utility_line_failure : 1;  // 1비트 할당
+            unsigned int battery_current_limit_fault : 1;  // 1비트 할당
+            unsigned int Battery_OV_limit_fault : 1;  // 1비트 할당
+            unsigned int battery_UV_limit_fault : 1;  // 1비트 할당
+            unsigned int inverter_output_voltage_fault : 1;  // 1비트 할당
+            unsigned int Inverter_over_load_fault : 1;  // 1비트 할당
+            unsigned int Inverter_over_load_over_time : 1;  // 1비트 할당
+            unsigned int reserved_1: 1;  // 1비트 할당
+            unsigned int bypass_mode : 1;  // 1비트 할당
+            // ... 필요한 만큼 비트 추가
+        };
+        unsigned int value;  // 전체 값으로 접근
+    };
+};
+
+ups_hw_status hwStatus;
+ups_operation_fault_status  faultStatus;
+/* 
+UPS Command(15 번지)			
+15.0 	D00 : UPS RUN(Toggle)		
+15.1 	D01 : Discharging MOD(RUN/STOP) - (Toggle)		
+15.2 	D02 : Offset Command(ON/OFF) - (Toggle)		
+15.3 	D03 : SYSTEM OFF(Toggle)		
+15.4 	D04 : ALARM RESET, H/W & S/W LATCH FAULT RESET(Toggle)		
+
+*/
+struct ups_command {
+    union {
+        struct {
+            unsigned int ups_run : 1;  // 1비트 할당
+            unsigned int discharging_mod : 1;  // 1비트 할당	
+            unsigned int offset_command : 1;  // 1비트 할당
+            unsigned int system_off : 1;  // 1비트 할당
+            unsigned int alarm_reset : 1;  // 1비트 할당
+        };
+        unsigned int value;  // 전체 값으로 접근
+    };
+};
 
 int MODBUS_CRC(unsigned char *auchMsg, int usDataLen)
 {
@@ -652,7 +794,7 @@ void touch_read()
 			//    	  		}
 			break;
 		case secret1_i:
-			myGLCD.setColor(0, 0, 0);
+			myGLCD.setColor(BLACK);
 			if ((x >= 20) && (x <= 150) && (y >= 30) && (y <= 87))
 			{
 				waitForIt(20, 30, 150, 87);
@@ -832,7 +974,7 @@ void touch_read()
 					waitForIt(162, 194, 240, 238);
 					stCurrent[0] = '\0';
 					stCurrentLen = 0;
-					myGLCD.setColor(0, 0, 0);
+					myGLCD.setColor(BLACK);
 					myGLCD.fillRect(160, 10, 319, 53);
 				}
 			}
@@ -1039,7 +1181,7 @@ void touch_read()
 				else
 				{
 					z = eeprom_address - 28;
-					myGLCD.setColor(30, 30, 30);
+					myGLCD.setColor(DARK_GRAY_2);
 					myGLCD.drawRect(81, 200, 159, 238);
 				}
 			}
@@ -1054,7 +1196,7 @@ void touch_read()
 				}
 				else
 				{
-					myGLCD.setColor(30, 30, 30);
+					myGLCD.setColor(DARK_GRAY_2);
 					myGLCD.drawRect(161, 200, 239, 238);
 				}
 			}
@@ -1124,7 +1266,7 @@ void eeprom_history()
 {
 
 	myGLCD.setFont(Retro);
-	myGLCD.setBackColor(255, 255, 255);
+	myGLCD.setBackColor(WHITE);
 	myGLCD.setColor(240, 10, 30);
 	if (z != 0)
 	{
@@ -1441,8 +1583,10 @@ void serial_rx()
 				{
 					hex_data[j + addr_num] = ((short)(rx[j * 2 + 4] & 0x00ff) | (((short)rx[j * 2 + 3] << 8) & 0xff00));
 				}
-				hex_data[11] = hex_data[11] & 0x3FFF;
+				hex_data[11] = hex_data[11] & 0x7FFF;
 				hex_data[12] = hex_data[12] & 0xBFFF;
+				hwStatus.value = hex_data[11];
+				faultStatus.value = hex_data[12];
 			}
 			eeprom_set();
 		}
@@ -1472,10 +1616,10 @@ void background_menu()
 	myGLCD.fillRect(29, 190, 174, 239); // HOME
 	myGLCD.setColor(109, 109, 109);
 	myGLCD.fillRect(175, 190, 319, 239); // ESC
-	myGLCD.setColor(30, 30, 30);
+	myGLCD.setColor(DARK_GRAY_2);
 	myGLCD.fillRect(0, 0, 28, 239); // MENU
 
-	myGLCD.setColor(255, 255, 255);
+	myGLCD.setColor(WHITE);
 	myGLCD.drawRect(29, 0, 174, 94);
 	myGLCD.drawRect(175, 0, 319, 94);
 	myGLCD.drawRect(29, 95, 174, 189);
@@ -1486,7 +1630,7 @@ void background_menu()
 }
 void background_meter()
 {
-	myGLCD.fillScr(255, 255, 255); // White Color
+	myGLCD.fillScr(WHITE); // White Color
 	myGLCD.setColor(116, 175, 46);
 	//	myGLCD.fillRoundRect (160, 10, 230, 50);
 	myGLCD.fillRect(200, 185, 310, 235);
@@ -1495,7 +1639,7 @@ void background_meter()
 	myGLCD.fillRect(10, 88, 309, 116);
 	myGLCD.fillRect(10, 146, 309, 174);
 	myGLCD.fillRect(10, 204, 190, 232);
-	myGLCD.setColor(0, 0, 0);
+	myGLCD.setColor(BLACK);
 	//	myGLCD.drawRoundRect (160, 10, 230, 50);
 	myGLCD.drawRect(200, 185, 310, 235);
 	myGLCD.drawRect(10, 30, 309, 58);
@@ -1510,7 +1654,7 @@ void background_meter()
 		myGLCD.fillRect(247, 169, 248, 170); // hz point
 	}
 	myGLCD.setFont(BigFont);
-	myGLCD.setColor(255, 255, 255);
+	myGLCD.setColor(WHITE);
 	myGLCD.setBackColor(70, 70, 70);
 	myGLCD.print("   V     A     Hz", 24, 37);
 	myGLCD.print("   V     A     Hz", 24, 95);
@@ -1526,27 +1670,27 @@ void background_meter()
 	}
 	else
 	{
-		myGLCD.setBackColor(255, 255, 255);
-		myGLCD.setColor(0, 0, 0);
+		myGLCD.setBackColor(WHITE);
+		myGLCD.setColor(BLACK);
 		myGLCD.print("INPUT", 10, 10);
 		myGLCD.print("INVERTER", 10, 68);
 		myGLCD.print("OUTPUT", 10, 126);
 		myGLCD.print("BATTERY", 10, 184);
 
 		myGLCD.setBackColor(116, 175, 46);
-		myGLCD.setColor(255, 255, 255);
+		myGLCD.setColor(WHITE);
 		myGLCD.print("ESC", 232, 203);
 	}
 }
 void background_gain()
 {
-	myGLCD.fillScr(255, 255, 255);
-	myGLCD.setColor(60, 60, 60);
+	myGLCD.fillScr(WHITE);
+	myGLCD.setColor(SOFT_GRAY);
 	myGLCD.fillRect(20, 30, 150, 57);
 	myGLCD.fillRect(170, 30, 300, 57);
 	myGLCD.fillRect(20, 126, 150, 153);
 	myGLCD.fillRect(170, 126, 300, 153);
-	myGLCD.setColor(0, 0, 0);
+	myGLCD.setColor(BLACK);
 	myGLCD.fillRect(20, 58, 150, 60);
 	myGLCD.fillRect(170, 58, 300, 60);
 	myGLCD.fillRect(20, 154, 150, 156);
@@ -1557,12 +1701,12 @@ void background_gain()
 	myGLCD.drawRect(170, 126, 300, 183);
 
 	/*****menu******/
-	myGLCD.setColor(248, 111, 30);
+	myGLCD.setColor(ORANGE);
 	myGLCD.fillRect(1, 200, 79, 238);
 	myGLCD.fillRect(81, 200, 159, 238);
 	myGLCD.fillRect(161, 200, 239, 238);
 	myGLCD.fillRect(241, 200, 318, 238);
-	myGLCD.setColor(30, 30, 30);
+	myGLCD.setColor(DARK_GRAY_2);
 	myGLCD.drawRect(1, 200, 79, 238);
 	myGLCD.drawRect(81, 200, 159, 238);
 	myGLCD.drawRect(161, 200, 239, 238);
@@ -1570,19 +1714,19 @@ void background_gain()
 }
 void background_alarm()
 {
-	myGLCD.fillScr(255, 255, 255); // White Color
+	myGLCD.fillScr(WHITE); // White Color
 	myGLCD.setColor(50, 50, 50);
 	myGLCD.drawLine(0, 26, 319, 26);
 	myGLCD.setColor(116, 175, 46);
 	myGLCD.fillRect(0, 0, 319, 25);
 
 	/*****menu******/
-	myGLCD.setColor(248, 111, 30);
+	myGLCD.setColor(ORANGE);
 	myGLCD.fillRect(1, 200, 79, 238);
 	myGLCD.fillRect(81, 200, 159, 238);
 	myGLCD.fillRect(161, 200, 239, 238);
 	myGLCD.fillRect(241, 200, 318, 238);
-	myGLCD.setColor(30, 30, 30);
+	myGLCD.setColor(DARK_GRAY_2);
 	myGLCD.drawRect(1, 200, 79, 238);
 	myGLCD.drawRect(81, 200, 159, 238);
 	myGLCD.drawRect(161, 200, 239, 238);
@@ -1597,14 +1741,14 @@ void background_alarm()
 	}
 	else
 	{
-		myGLCD.setColor(255, 255, 255);
+		myGLCD.setColor(WHITE);
 		myGLCD.setFont(BigFont);
 		myGLCD.setBackColor(116, 175, 46);
 		myGLCD.print("Alarm State", 53, 5);
 
 		myGLCD.setFont(Retro);
-		myGLCD.setColor(0, 0, 0);
-		myGLCD.setBackColor(255, 255, 255);
+		myGLCD.setColor(BLACK);
+		myGLCD.setBackColor(WHITE);
 		myGLCD.setBackColor(248, 111, 30);
 		myGLCD.print("HISTORY", 12, 212);
 
@@ -1615,7 +1759,7 @@ void background_alarm()
 }
 void background_history()
 {
-	myGLCD.fillScr(255, 255, 255); // White Color
+	myGLCD.fillScr(WHITE); // White Color
 	/*****menu******/
 	myGLCD.setColor(50, 50, 50);
 	myGLCD.drawLine(0, 26, 319, 26);
@@ -1623,12 +1767,12 @@ void background_history()
 	myGLCD.fillRect(0, 0, 319, 25);
 
 	/*****menu******/
-	myGLCD.setColor(248, 111, 30);
+	myGLCD.setColor(ORANGE);
 	myGLCD.fillRect(1, 200, 79, 238);
 	myGLCD.fillRect(81, 200, 159, 238);
 	myGLCD.fillRect(161, 200, 239, 238);
 	myGLCD.fillRect(241, 200, 318, 238);
-	myGLCD.setColor(30, 30, 30);
+	myGLCD.setColor(DARK_GRAY_2);
 	myGLCD.drawRect(1, 200, 79, 238);
 	myGLCD.drawRect(81, 200, 159, 238);
 	myGLCD.drawRect(161, 200, 239, 238);
@@ -1644,14 +1788,14 @@ void background_history()
 	}
 	else
 	{
-		myGLCD.setColor(255, 255, 255);
+		myGLCD.setColor(WHITE);
 		myGLCD.setFont(BigFont);
 		myGLCD.setBackColor(116, 175, 46);
 		myGLCD.print("History Event", 53, 5);
 
 		myGLCD.setFont(Retro);
-		myGLCD.setColor(0, 0, 0);
-		myGLCD.setBackColor(255, 255, 255);
+		myGLCD.setColor(BLACK);
+		myGLCD.setBackColor(WHITE);
 		myGLCD.setBackColor(248, 111, 30);
 		myGLCD.print("MAIN", 24, 212);
 		myGLCD.print("PREW", 104, 212);
@@ -1670,7 +1814,7 @@ void buzz_set()
 	{ // �˶� ���� Ȯ��
 		alarm_number1 &= (alarm_number1 - 1);
 	}
-	alarm_number2 = alarm_data2 & 0x3FFF; // ON OFF ����ġ üũ ��
+	alarm_number2 = alarm_data2 & 0x7FFF; // ON OFF ����ġ üũ ��
 	for (alarm_number_2i = 0; alarm_number2 != 0; alarm_number_2i++)
 	{ // �˶� ���� Ȯ��
 		alarm_number2 &= (alarm_number2 - 1);
@@ -1682,7 +1826,7 @@ void buzz_set()
 void alarm_set()
 {
 	myGLCD.setFont(Retro);
-	myGLCD.setBackColor(255, 255, 255);
+	myGLCD.setBackColor(WHITE);
 	myGLCD.setColor(255, 0, 0);
 	alarm_data1 = hex_data[12];
 	//		alarm_data1=0xFFFF;
@@ -2452,7 +2596,7 @@ void alarm_set()
 	y1_delete = (alarm_number_i * 22) + 40;
 	if (y1_delete > 190)
 		y1_delete = 190;
-	myGLCD.setColor(255, 255, 255);
+	myGLCD.setColor(WHITE);
 	myGLCD.fillRect(20, y1_delete, 300, 190);
 }
 void drawButtons()
@@ -2464,27 +2608,27 @@ void drawButtons()
 	{
 		myGLCD.setColor(190, 190, 190);
 		myGLCD.fillRect(2 + (x * 80), 148, 80 + (x * 80), 192);
-		myGLCD.setColor(0, 0, 0);
+		myGLCD.setColor(BLACK);
 		myGLCD.printNumI(x + 1, 33 + (x * 80), 163);
-		myGLCD.setColor(255, 255, 255);
+		myGLCD.setColor(WHITE);
 		myGLCD.drawRect(2 + (x * 80), 148, 80 + (x * 80), 192);
 	}
 	for (x = 0; x < 3; x++)
 	{
 		myGLCD.setColor(190, 190, 190);
 		myGLCD.fillRect(2 + (x * 80), 102, 80 + (x * 80), 146);
-		myGLCD.setColor(0, 0, 0);
+		myGLCD.setColor(BLACK);
 		myGLCD.printNumI(x + 4, 33 + (x * 80), 117);
-		myGLCD.setColor(255, 255, 255);
+		myGLCD.setColor(WHITE);
 		myGLCD.drawRect(2 + (x * 80), 102, 80 + (x * 80), 146);
 	}
 	for (x = 0; x < 3; x++)
 	{
 		myGLCD.setColor(190, 190, 190);
 		myGLCD.fillRect(2 + (x * 80), 56, 80 + (x * 80), 100);
-		myGLCD.setColor(0, 0, 0);
+		myGLCD.setColor(BLACK);
 		myGLCD.printNumI(x + 7, 33 + (x * 80), 71);
-		myGLCD.setColor(255, 255, 255);
+		myGLCD.setColor(WHITE);
 		myGLCD.drawRect(2 + (x * 80), 56, 80 + (x * 80), 100);
 	}
 	myGLCD.setColor(190, 190, 190);
@@ -2493,11 +2637,11 @@ void drawButtons()
 	myGLCD.setColor(242, 90, 0);
 	myGLCD.fillRect(242, 56, 317, 146);
 	myGLCD.fillRect(242, 148, 317, 238);
-	myGLCD.setColor(0, 0, 0);
+	myGLCD.setColor(BLACK);
 	myGLCD.print("0", 33, 209);
 	myGLCD.print("DEL", 176, 209);
 	myGLCD.setBackColor(242, 90, 0);
-	myGLCD.setColor(255, 255, 255);
+	myGLCD.setColor(WHITE);
 	myGLCD.drawRect(2, 194, 160, 238);
 	myGLCD.drawRect(162, 194, 240, 238);
 	myGLCD.drawRect(242, 56, 317, 146);
@@ -2513,7 +2657,7 @@ void updateStr(int val)
 		stCurrent[stCurrentLen] = val;
 		stCurrent[stCurrentLen + 1] = '\0';
 		stCurrentLen++;
-		myGLCD.setColor(255, 255, 255);
+		myGLCD.setColor(WHITE);
 		myGLCD.setBackColor(0, 0, 0);
 		myGLCD.setFont(Segment);
 		// 	    myGLCD.print(stCurrent, (RIGHT-(stCurrentLen*24)), 18);
@@ -2536,7 +2680,7 @@ void buffer_empty()
 	myGLCD.print("BUFFER EMPTY", 10, 25);
 	delay(500);
 	myGLCD.print("            ", 10, 25);
-	myGLCD.setColor(0, 0, 0);
+	myGLCD.setColor(BLACK);
 	myGLCD.fillRect(160, 10, 319, 53);
 	stCurrentLen = 0;
 }
@@ -2551,7 +2695,7 @@ void buffer_full()
 	myGLCD.print("BUFFER FULL", 10, 25);
 	delay(500);
 	myGLCD.print("            ", 10, 25);
-	myGLCD.setColor(0, 0, 0);
+	myGLCD.setColor(BLACK);
 	myGLCD.fillRect(160, 10, 319, 53);
 	stCurrentLen = 0;
 }
@@ -2719,20 +2863,20 @@ void waitForIt(int x1, int y11, int x2, int y2)
 	myGLCD.drawRect(x1, y11, x2, y2);
 	while (myTouch.dataAvailable())
 		myTouch.read();
-	myGLCD.setColor(255, 255, 255);
+	myGLCD.setColor(WHITE);
 	myGLCD.drawRect(x1, y11, x2, y2);
 }
 void ac_model(int x_line, int y_line)
 {
-	myGLCD.setColor(255, 255, 255);
+	myGLCD.setColor(WHITE);
 	myGLCD.drawCircle(x_line, y_line, 5);
 	myGLCD.drawCircle(x_line, y_line, 4);
 	myGLCD.drawCircle((x_line + 10), y_line, 5);
 	myGLCD.drawCircle((x_line + 10), y_line, 4);
 	if (ac_onoff == 0)
-		myGLCD.setColor(60, 60, 60);
+		myGLCD.setColor(SOFT_GRAY);
 	else if (ac_onoff == 1)
-		myGLCD.setColor(22, 108, 171);
+		myGLCD.setColor(BLUEGREEN);
 	myGLCD.fillRect((x_line - 5), (y_line + 2), (x_line + 4), (y_line + 5));
 	myGLCD.fillRect((x_line + 6), (y_line - 5), (x_line + 15), (y_line - 2));
 }
@@ -2763,9 +2907,9 @@ void setup()
 		sd.begin(SD_CHIP_SELECT, SPI_FULL_SPEED);
 	}
 
-	myGLCD.fillScr(255, 255, 255);
-	myGLCD.setColor(0, 0, 0);
-	myGLCD.setBackColor(255, 255, 255);
+	myGLCD.fillScr(WHITE);
+	myGLCD.setColor(BLACK);
+	myGLCD.setBackColor(WHITE);
 	myGLCD.setFont(BigFont);
 	myTouch.InitTouch();
 	myTouch.setPrecision(PREC_MEDIUM);
@@ -2783,7 +2927,7 @@ void setup()
 	myGLCD.print("H", 265, 90);
 	delay(300);
 	myGLCD.setFont(Retro);
-	myGLCD.setColor(30, 30, 30);
+	myGLCD.setColor(DARK_GRAY_2);
 	myGLCD.print("I", 56, 160);
 	delay(20);
 	myGLCD.print("N", 64, 160);
@@ -2850,6 +2994,48 @@ void setup()
 	//		language=0;
 }
 
+void drawMainPowerLine()
+{
+	// bypass failure
+	myGLCD.setColor(LIGHT_GRAY);	   // light gray
+	if(hwStatus.bypass_failure == 0)
+	{
+		myGLCD.setColor(GREEN);	   // green
+		myGLCD.fillRect(27, 47, 38, 99);   // bypass 1
+		myGLCD.fillRect(39, 47, 227, 58);  // bypass 2
+	}
+	else {
+		myGLCD.setColor(LIGHT_GRAY);	   // light gray
+		myGLCD.fillRect(27, 47, 38, 99);   // bypass 1
+		myGLCD.fillRect(39, 47, 227, 58);  // bypass 2
+	}
+	// utility line failure
+	if(faultStatus.utility_line_failure == 1){
+		myGLCD.setColor(LIGHT_GRAY);	   // light gray
+		myGLCD.fillRect(39, 100, 56, 111); // 3
+		myGLCD.fillRect(9, 100, 26, 111);  // 1
+	}
+	else {
+		myGLCD.setColor(GREEN);	   // green
+		myGLCD.fillRect(39, 100, 56, 111); // 3
+		myGLCD.fillRect(9, 100, 26, 111);  // 1
+	}
+
+	if( hwStatus.bypass_failure==1 && faultStatus.utility_line_failure==1)
+	{
+		myGLCD.setColor(LIGHT_GRAY);
+		myGLCD.fillRect(9, 100, 26, 111);  // 1
+		myGLCD.fillRect(27, 100, 38, 111); // in center
+	}
+	else
+	{
+		myGLCD.setColor(GREEN);
+		myGLCD.fillRect(9, 100, 26, 111);  // 1
+		myGLCD.fillRect(27, 100, 38, 111); // in center
+	}
+
+}
+
 void loop()
 {
 	WatchDogClear();
@@ -2891,10 +3077,10 @@ void loop()
 	{
 	case intro_set:
 		if((intro_type == 0) || (intro_type == 255)) {
-			myGLCD.fillScr(255, 255, 255); // White Color
+			myGLCD.fillScr(WHITE); // White Color
 			myGLCD.setFont(BigFont);
-			myGLCD.setColor(0, 0, 0);
-			myGLCD.setBackColor(255, 255, 255);
+			myGLCD.setColor(BLACK);
+			myGLCD.setBackColor(WHITE);
 			myGLCD.print("STANDARD", 15, 50);
 			myGLCD.print("SCANJET", 184, 50);
 			myGLCD.print("TPS", 60, 170);
@@ -2909,7 +3095,7 @@ void loop()
 
 		break;
 	case intro:
-		myGLCD.fillScr(255, 255, 255); // White Color
+		myGLCD.fillScr(WHITE); // White Color
 		if (intro_type == 2) {
 			myGLCD.drawBitmap(35, 15, 250, 99, scanjet);
 			language = 0;
@@ -2924,7 +3110,7 @@ void loop()
 		myGLCD.fillRect(0, 125, 319, 175);
 		//						myGLCD.fillRect (80, 35, 95, 50);
 		myGLCD.setFont(BigFont);
-		myGLCD.setColor(0, 0, 0);
+		myGLCD.setColor(BLACK);
 		myGLCD.setBackColor(230, 230, 230);
 		myGLCD.print("KVA", 90, 130);
 		myGLCD.print("CELL", 210, 130);
@@ -2955,19 +3141,19 @@ void loop()
 				myGLCD.fillRect(270, 0, 319, 24);
 				myGLCD.setColor(206, 15, 33);
 				myGLCD.fillRect(220, 0, 269, 24);
-				myGLCD.setColor(255, 255, 255);
+				myGLCD.setColor(WHITE);
 				myGLCD.setBackColor(206, 15, 33);
 				myGLCD.print("EN", 229, 5);
 				myGLCD.setBackColor(120, 120, 120);
 				myGLCD.print("KO", 279, 5);
 
-				myGLCD.setColor(0, 0, 0);
+				myGLCD.setColor(BLACK);
 				myGLCD.setBackColor(230, 230, 230);
 				myGLCD.print("IN", 30, 155);
 				myGLCD.print("OUT", 142, 155);
 			}
 		}
-		myGLCD.setColor(255, 255, 255);
+		myGLCD.setColor(WHITE);
 		myGLCD.setBackColor(40, 104, 176);
 		if (language == 1) myFiles.load(120, 198, 80, 20, "han/intro/enter.RAW");
 		else myGLCD.print("ENTER", 120, 200);
@@ -2979,15 +3165,15 @@ void loop()
 		if ((intro_type == 1) || (intro_type == 4))
 		{
 			myGLCD.setFont(BigFont);
-			myGLCD.setColor(30, 30, 30);
-			myGLCD.setBackColor(255, 255, 255);
+			myGLCD.setColor(DARK_GRAY_2);
+			myGLCD.setBackColor(WHITE);
 			if (rtc_month >= 10)
 				myGLCD.print(String(rtc_month), 80, 25);
 			else
 			{
-				myGLCD.setColor(255, 255, 255);
+				myGLCD.setColor(WHITE);
 				myGLCD.fillRect(80, 25, 95, 40);
-				myGLCD.setColor(0, 0, 0);
+				myGLCD.setColor(BLACK);
 				myGLCD.print(String(rtc_month), 96, 25);
 			}
 			myGLCD.print(".", 112, 25);
@@ -2995,9 +3181,9 @@ void loop()
 				myGLCD.print(String(rtc_day), 128, 25);
 			else
 			{
-				myGLCD.setColor(255, 255, 255);
+				myGLCD.setColor(WHITE);
 				myGLCD.fillRect(128, 25, 143, 40);
-				myGLCD.setColor(0, 0, 0);
+				myGLCD.setColor(BLACK);
 				myGLCD.print(String(rtc_day), 144, 25);
 			}
 			myGLCD.print(daynames[rtc.getDayofWeek()], 185, 25);
@@ -3007,9 +3193,9 @@ void loop()
 				myGLCD.print(String(rtc_hour), 80, 50);
 			else
 			{
-				myGLCD.setColor(255, 255, 255);
+				myGLCD.setColor(WHITE);
 				myGLCD.fillRect(80, 50, 111, 100);
-				myGLCD.setColor(0, 0, 0);
+				myGLCD.setColor(BLACK);
 				myGLCD.print(String(rtc_hour), 112, 50);
 			}
 			myGLCD.print(":", 148, 50);
@@ -3017,9 +3203,9 @@ void loop()
 				myGLCD.print(String(rtc_minute), 180, 50);
 			else
 			{
-				myGLCD.setColor(255, 255, 255);
+				myGLCD.setColor(WHITE);
 				myGLCD.fillRect(180, 50, 212, 100);
-				myGLCD.setColor(0, 0, 0);
+				myGLCD.setColor(BLACK);
 				myGLCD.print(String(rtc_minute), 212, 50);
 			}
 		}
@@ -3045,18 +3231,18 @@ void loop()
 		position2(3, 154, 130);
 		break;
 	case main:
-		myGLCD.fillScr(255, 255, 255); // White Color
-		myGLCD.setColor(0, 0, 0);
+		myGLCD.fillScr(WHITE); // White Color
+		myGLCD.setColor(BLACK);
 		//						myGLCD.fillRect (0, 0, 319, 209);
 		/*****menu******/
-		myGLCD.setColor(255, 255, 255);
+		myGLCD.setColor(WHITE);
 		myGLCD.fillRect(1, 1, 100, 30);
-		myGLCD.setColor(248, 111, 30);
+		myGLCD.setColor(ORANGE);
 		myGLCD.fillRect(1, 200, 79, 238);
 		myGLCD.fillRect(81, 200, 159, 238);
 		myGLCD.fillRect(161, 200, 239, 238);
 		myGLCD.fillRect(241, 200, 318, 238);
-		myGLCD.setColor(30, 30, 30);
+		myGLCD.setColor(DARK_GRAY_2);
 		myGLCD.drawRect(1, 1, 100, 30);
 		myGLCD.drawRect(1, 200, 79, 238);
 		myGLCD.drawRect(81, 200, 159, 238);
@@ -3064,7 +3250,7 @@ void loop()
 		myGLCD.drawRect(241, 200, 318, 238);
 
 		/*****line******/
-		myGLCD.setColor(97, 97, 97); // dark gray
+		myGLCD.setColor(DARK_GRAY); // dark gray
 		myGLCD.drawLine(9, 99, 26, 99);
 		myGLCD.drawLine(39, 99, 56, 99);
 		myGLCD.drawLine(102, 99, 164, 99);
@@ -3101,8 +3287,8 @@ void loop()
 		else
 		{
 			myGLCD.setFont(Retro);
-			myGLCD.setColor(0, 0, 0);
-			myGLCD.setBackColor(255, 255, 255);
+			myGLCD.setColor(BLACK);
+			myGLCD.setBackColor(WHITE);
 			myGLCD.print("INTRO", 30, 9);
 			myGLCD.setBackColor(248, 111, 30);
 			myGLCD.print("CONTROL", 12, 212);
@@ -3134,51 +3320,71 @@ void loop()
 		myGLCD.setFont(BigFont);
 
 		myGLCD.setColor(255, 0, 0);
-		myGLCD.setBackColor(255, 255, 255);
+		myGLCD.setBackColor(WHITE);
 		myGLCD.print("BAT", 181, 145);
 		myGLCD.print("LOAD", 173, 170);
 		myGLCD.print("%", 300, 145);
 		myGLCD.print("%", 300, 170);
 		myGLCD.setBackColor(22, 108, 171);
-		myGLCD.setColor(255, 255, 255);
+		myGLCD.setColor(WHITE);
 		page_num = main_next;
 		break;
 	case main_next:
 
-		int main_alarm1, main_alarm2;
+		int main_alarm1 ;
 		int main_routine;
+		int main_alarm2;
+		int main_check;
 		main_alarm2 = hex_data[12] >> 7;
 		main_check = main_alarm2 & 0x0001;
-		if (main_check == 0)
-		{
-			//								myGLCD.setColor(203, 14, 14);		//soft red
-			myGLCD.setColor(33, 184, 3);	   // green
-			myGLCD.fillRect(9, 100, 26, 111);  // 1
-			myGLCD.fillRect(27, 100, 38, 111); // in center
-			myGLCD.fillRect(39, 100, 56, 111); // 3
-			myGLCD.fillRect(27, 47, 38, 99);   // bypass 1
-			myGLCD.fillRect(39, 47, 227, 58);  // bypass 2
-		}
-		else
-		{
-			//								myGLCD.setColor(90, 90, 90);		//green
-			myGLCD.setColor(235, 235, 235);	   // light gray
-			myGLCD.fillRect(9, 100, 26, 111);  // 1
-			myGLCD.fillRect(27, 100, 38, 111); // in center
-			myGLCD.fillRect(39, 100, 56, 111); // 3
-			myGLCD.fillRect(27, 47, 38, 99);   // bypass 1
-			myGLCD.fillRect(39, 47, 227, 58);  // bypass 2
-		}
+
+		drawMainPowerLine();
+		// if (main_alarm2.utility_line_failure == 0)
+		// {
+		// 	//								myGLCD.setColor(203, 14, 14);		//soft red
+		// 	myGLCD.setColor(GREEN);	   // green
+		// 	myGLCD.fillRect(9, 100, 26, 111);  // 1
+		// 	myGLCD.fillRect(27, 100, 38, 111); // in center
+		// 	myGLCD.fillRect(27, 47, 38, 99);   // bypass 1
+		// 	myGLCD.fillRect(39, 47, 227, 58);  // bypass 2
+		// 	if (!main_alarm2.bypass_mode){
+		// 		myGLCD.setColor(GREEN);	   // green
+		// 		myGLCD.fillRect(39, 100, 56, 111); // 3
+		// 	}
+		// 	else{
+		// 		myGLCD.setColor(LIGHT_GRAY);	   // light gray
+		// 		myGLCD.fillRect(39, 100, 56, 111); // 3
+		// 	}
+		// }
+		// else if (!main_alarm2.utility_line_failure && main_alarm2.bypass_mode){
+		// 	myGLCD.setColor(GREEN);	   // green
+		// 	myGLCD.fillRect(9, 100, 26, 111);  // 1
+		// 	myGLCD.fillRect(27, 100, 38, 111); // in center
+		// 	myGLCD.fillRect(27, 47, 38, 99);   // bypass 1
+		// 	myGLCD.fillRect(39, 47, 227, 58);  // bypass 2
+		// 	myGLCD.setColor(LIGHT_GRAY);	   // light gray
+		// 	myGLCD.fillRect(39, 100, 56, 111); // 3
+		// }
+		// else
+		// {
+		// 	//								myGLCD.setColor(MIDDLE_GRAY);		//green
+		// 	myGLCD.setColor(LIGHT_GRAY);	   // light gray
+		// 	myGLCD.fillRect(9, 100, 26, 111);  // 1
+		// 	myGLCD.fillRect(27, 100, 38, 111); // in center
+		// 	myGLCD.fillRect(39, 100, 56, 111); // 3
+		// 	myGLCD.fillRect(27, 47, 38, 99);   // bypass 1
+		// 	myGLCD.fillRect(39, 47, 227, 58);  // bypass 2
+		// }
 		main_alarm1 = hex_data[10];
 		main_check = main_alarm1 & 0x0001;
 		con_check = main_check; // converter on off check
 		if (main_check == 0)
 		{
-			myGLCD.setColor(235, 235, 235);			// light gray
+			myGLCD.setColor(LIGHT_GRAY);			// light gray
 			myGLCD.fillRect(102, 100, 126, 111);	// dc 1
 			myGLCD.fillRect(127, 100, 138, 111);	// dc center
 			myGLCD.fillRect(139, 100, 164, 111);	// dc 2
-			myGLCD.setColor(60, 60, 60);			// blue
+			myGLCD.setColor(SOFT_GRAY);			// blue
 			myGLCD.fillRoundRect(58, 86, 100, 127); // converter
 			ac_onoff = 0;
 			ac_model(66, 96);
@@ -3186,11 +3392,11 @@ void loop()
 		else
 		{
 			//								myGLCD.setColor(203, 14, 14);		//soft red
-			myGLCD.setColor(33, 184, 3);			// green
+			myGLCD.setColor(GREEN);			// green
 			myGLCD.fillRect(102, 100, 126, 111);	// dc 1
 			myGLCD.fillRect(127, 100, 138, 111);	// dc center
 			myGLCD.fillRect(139, 100, 164, 111);	// dc 2
-			myGLCD.setColor(22, 108, 171);			// blue
+			myGLCD.setColor(BLUEGREEN);			// blue
 			myGLCD.fillRoundRect(58, 86, 100, 127); // converter
 			ac_onoff = 1;
 			ac_model(66, 96);
@@ -3199,23 +3405,21 @@ void loop()
 		main_check = main_alarm1 & 0x0001;
 		if (main_check == 0)
 		{
-			myGLCD.setColor(235, 235, 235);		 // light gray
+			myGLCD.setColor(LIGHT_GRAY);		 // light gray
 			myGLCD.fillRect(127, 112, 138, 137); // dc battery
 			myGLCD.fillRect(127, 100, 138, 111); // dc center
 			myGLCD.fillRect(139, 100, 164, 111); // dc 2
 		}
 		else
 		{
-			//								myGLCD.setColor(203, 14, 14);		//soft red
-			myGLCD.setColor(33, 184, 3);		 // green
+			myGLCD.setColor(GREEN);		 // green
 			myGLCD.fillRect(127, 112, 138, 137); // dc battery
 			myGLCD.fillRect(127, 100, 138, 111); // dc center
 			myGLCD.fillRect(139, 100, 164, 111); // dc 2
 		}
 		if ((main_check == 0) && (con_check == 1))
 		{
-			//								myGLCD.setColor(203, 14, 14);		//soft red
-			myGLCD.setColor(33, 184, 3);		 // green
+			myGLCD.setColor(GREEN);		 // green
 			myGLCD.fillRect(127, 100, 138, 111); // dc center
 			myGLCD.fillRect(139, 100, 164, 111); // dc 2
 		}
@@ -3223,9 +3427,9 @@ void loop()
 		main_check = main_alarm1 & 0x0001;
 		if (main_check == 0)
 		{
-			myGLCD.setColor(235, 235, 235);			 // light gray
+			myGLCD.setColor(LIGHT_GRAY);			 // light gray
 			myGLCD.fillRect(210, 100, 227, 111);	 // inv-sts
-			myGLCD.setColor(60, 60, 60);			 // blue
+			myGLCD.setColor(SOFT_GRAY);			 // blue
 			myGLCD.fillRoundRect(166, 86, 208, 127); // inverter
 			ac_onoff = 0;
 			ac_model(190, 117);
@@ -3233,9 +3437,9 @@ void loop()
 		else
 		{
 			//							myGLCD.setColor(203, 14, 14);		//soft red
-			myGLCD.setColor(33, 184, 3);			 // green
+			myGLCD.setColor(GREEN);			 // green
 			myGLCD.fillRect(210, 100, 227, 111);	 // inv-sts
-			myGLCD.setColor(22, 108, 171);			 // blue
+			myGLCD.setColor(BLUEGREEN);			 // blue
 			myGLCD.fillRoundRect(166, 86, 208, 127); // inverter
 			ac_onoff = 1;
 			ac_model(190, 117);
@@ -3245,34 +3449,46 @@ void loop()
 		if (main_check == 0)
 		{
 			//								myGLCD.setColor(203, 14, 14);		//soft red
-			myGLCD.setColor(33, 184, 3);		 // green
-			myGLCD.fillRect(263, 47, 292, 58);	 // bypass 3
-			myGLCD.fillRect(281, 59, 292, 99);	 // bypass 4
-			myGLCD.fillRect(281, 100, 292, 111); // out center
-			myGLCD.fillRect(293, 100, 310, 111); // out 2
-			myGLCD.setColor(235, 235, 235);		 // light gray
+			myGLCD.setColor(GREEN);		 // green
+			if(hwStatus.bypass_failure==1 ){
+				myGLCD.setColor(LIGHT_GRAY);		 // light gray
+				myGLCD.fillRect(263, 47, 292, 58);	 // bypass 3
+				myGLCD.fillRect(281, 59, 292, 99);	 // bypass 4
+				myGLCD.fillRect(281, 100, 292, 111); // out center
+				myGLCD.fillRect(293, 100, 310, 111); // out 2
+				myGLCD.setColor(GREEN);		 // green
+			}
+			else
+			{
+				myGLCD.fillRect(263, 47, 292, 58);	 // bypass 3
+				myGLCD.fillRect(281, 59, 292, 99);	 // bypass 4
+				myGLCD.fillRect(281, 100, 292, 111); // out center
+				myGLCD.fillRect(293, 100, 310, 111); // out 2
+
+			}
+			myGLCD.setColor(LIGHT_GRAY);		 // light gray
 			myGLCD.fillRect(263, 100, 280, 111); // out 1
 			myGLCD.setColor(243, 155, 7);
 			myGLCD.fillRoundRect(229, 41, 261, 65); // sts
-			myGLCD.setColor(90, 90, 90);
+			myGLCD.setColor(MIDDLE_GRAY);
 			myGLCD.fillRoundRect(229, 94, 261, 118); // sts
 		}
 		else
 		{
 			//								myGLCD.setColor(203, 14, 14);		//soft red
-			myGLCD.setColor(33, 184, 3);		 // green
+			myGLCD.setColor(GREEN);		 // green
 			myGLCD.fillRect(263, 100, 280, 111); // out 1
 			myGLCD.fillRect(281, 100, 292, 111); // out center
 			myGLCD.fillRect(293, 100, 310, 111); // out 2
-			myGLCD.setColor(235, 235, 235);		 // light gray
+			myGLCD.setColor(LIGHT_GRAY);		 // light gray
 			myGLCD.fillRect(263, 47, 292, 58);	 // bypass 3
 			myGLCD.fillRect(281, 59, 292, 99);	 // bypass 4
-			myGLCD.setColor(90, 90, 90);
+			myGLCD.setColor(MIDDLE_GRAY);
 			myGLCD.fillRoundRect(229, 41, 261, 65); // sts
 			myGLCD.setColor(243, 155, 7);
 			myGLCD.fillRoundRect(229, 94, 261, 118); // sts
 		}
-		myGLCD.setColor(255, 255, 255);
+		myGLCD.setColor(WHITE);
 		// converter
 		myGLCD.drawLine(58, 127, 99, 86);
 		myGLCD.drawLine(79, 113, 97, 113);
@@ -3286,7 +3502,7 @@ void loop()
 		myGLCD.drawLine(170, 98, 188, 98);
 		myGLCD.drawLine(170, 99, 188, 99);
 
-		myGLCD.setColor(0, 0, 0);
+		myGLCD.setColor(BLACK);
 		// bypass scr
 		myGLCD.drawLine(245, 43, 245, 63);
 		myGLCD.drawLine(234, 45, 245, 53);
@@ -3308,6 +3524,7 @@ void loop()
 		myGLCD.drawLine(245, 106, 250, 116);
 		myGLCD.drawLine(245, 106, 240, 96);
 		main_system_check1 = hex_data[10];
+		main_system_check3 = hex_data[11];
 		main_system_check2 = hex_data[12];
 		buzzer_click = 0;
 		//  					if (buzzer_switch==1) myFiles.load (30, 150, 50, 50, "background/speaker.RAW");
@@ -3322,21 +3539,21 @@ void loop()
 		}
 		else if (buzzer_switch == 0)
 		{
-			myGLCD.setColor(255, 255, 255);
+			myGLCD.setColor(WHITE);
 			myGLCD.fillRect(25, 135, 75, 185);
 		}
 		myGLCD.setFont(Retro);
-		myGLCD.setColor(0, 0, 0);
-		myGLCD.setBackColor(255, 255, 255);
+		myGLCD.setColor(BLACK);
+		myGLCD.setBackColor(WHITE);
 		myGLCD.print(String(rtc_year), 126, 5);
 		myGLCD.print("/", 158, 5);
 		if (rtc_month >= 10)
 			myGLCD.print(String(rtc_month), 166, 5);
 		else
 		{
-			myGLCD.setColor(255, 255, 255);
+			myGLCD.setColor(WHITE);
 			myGLCD.fillRect(166, 5, 173, 20);
-			myGLCD.setColor(0, 0, 0);
+			myGLCD.setColor(BLACK);
 			myGLCD.print(String(rtc_month), 174, 5);
 		}
 		myGLCD.print("/", 182, 5);
@@ -3344,9 +3561,9 @@ void loop()
 			myGLCD.print(String(rtc_day), 190, 5);
 		else
 		{
-			myGLCD.setColor(255, 255, 255);
+			myGLCD.setColor(WHITE);
 			myGLCD.fillRect(190, 5, 197, 20);
-			myGLCD.setColor(0, 0, 0);
+			myGLCD.setColor(BLACK);
 			myGLCD.print(String(rtc_day), 198, 5);
 		}
 		myGLCD.print(daynames[rtc.getDayofWeek()], 216, 5);
@@ -3354,9 +3571,9 @@ void loop()
 			myGLCD.print(String(rtc_hour), 250, 5);
 		else
 		{
-			myGLCD.setColor(255, 255, 255);
+			myGLCD.setColor(WHITE);
 			myGLCD.fillRect(250, 5, 257, 20);
-			myGLCD.setColor(0, 0, 0);
+			myGLCD.setColor(BLACK);
 			myGLCD.print(String(rtc_hour), 258, 5);
 		}
 		myGLCD.print(":", 266, 5);
@@ -3364,9 +3581,9 @@ void loop()
 			myGLCD.print(String(rtc_minute), 274, 5);
 		else
 		{
-			myGLCD.setColor(255, 255, 255);
+			myGLCD.setColor(WHITE);
 			myGLCD.fillRect(274, 5, 281, 20);
-			myGLCD.setColor(0, 0, 0);
+			myGLCD.setColor(BLACK);
 			myGLCD.print(String(rtc_minute), 282, 5);
 		}
 		myGLCD.print(":", 290, 5);
@@ -3374,21 +3591,22 @@ void loop()
 			myGLCD.print(String(rtc_second), 298, 5);
 		else
 		{
-			myGLCD.setColor(255, 255, 255);
+			myGLCD.setColor(WHITE);
 			myGLCD.fillRect(298, 5, 304, 20);
-			myGLCD.setColor(0, 0, 0);
+			myGLCD.setColor(BLACK);
 			myGLCD.print(String(rtc_second), 305, 5);
 		}
 		myGLCD.setFont(BigFont);
 		position(6, 245, 145);
 		position(7, 245, 170);
-		if ((main_system_check1 != hex_data[10]) || (main_system_check2 != hex_data[12]))
+		if ((main_system_check1 != hex_data[10]) || (main_system_check2 != hex_data[12])
+			|| (main_system_check3 != hex_data[11]))
 			page_num = main_next;
 		break;
 	case sett:
 		myGLCD.setFont(BigFont);
-		myGLCD.fillScr(255, 255, 255);
-		myGLCD.setColor(60, 60, 60);
+		myGLCD.fillScr(WHITE);
+		myGLCD.setColor(SOFT_GRAY);
 		myGLCD.fillRect(0, 0, 319, 165);
 		myGLCD.setColor(158, 158, 158);
 		myGLCD.fillRect(5, 5, 314, 40);
@@ -3400,12 +3618,12 @@ void loop()
 		myGLCD.fillRect(80, 185, 190, 235);
 		myGLCD.fillRect(200, 185, 310, 235);
 
-		myGLCD.setColor(255, 255, 255);
+		myGLCD.setColor(WHITE);
 		myGLCD.fillRect(220, 8, 302, 37);
 		myGLCD.fillRect(220, 48, 302, 77);
 		myGLCD.fillRect(220, 88, 302, 117);
 		myGLCD.fillRect(220, 128, 302, 157);
-		myGLCD.setColor(0, 0, 0);
+		myGLCD.setColor(BLACK);
 		myGLCD.drawRect(80, 185, 190, 235);
 		myGLCD.drawRect(200, 185, 310, 235);
 		myGLCD.drawRect(220, 8, 302, 37);
@@ -3414,7 +3632,7 @@ void loop()
 		myGLCD.drawRect(220, 128, 302, 157);
 		if (language == 1)
 		{
-			myGLCD.setColor(255, 255, 255);
+			myGLCD.setColor(WHITE);
 			myFiles.load(20, 13, 162, 20, "han/setup/battery_v.RAW");
 			myFiles.load(20, 53, 162, 20, "han/setup/battery_a.RAW");
 			myFiles.load(20, 93, 142, 20, "han/setup/output_v.RAW");
@@ -3425,14 +3643,14 @@ void loop()
 		}
 		else
 		{
-			myGLCD.setColor(0, 0, 0);
-			myGLCD.setBackColor(255, 255, 255);
+			myGLCD.setColor(BLACK);
+			myGLCD.setBackColor(WHITE);
 			myGLCD.print("BATTERY [V]", 20, 15);
 			myGLCD.print("BATTERY [A]", 20, 55);
 			myGLCD.print("OUTPUT [V]", 20, 95);
 			myGLCD.print("BAT_PIS [V]", 20, 135);
 			myGLCD.setBackColor(116, 175, 46);
-			myGLCD.setColor(255, 255, 255);
+			myGLCD.setColor(WHITE);
 			myGLCD.print("ESC", 232, 203);
 			myGLCD.print("TIME", 104, 203);
 		}
@@ -3450,10 +3668,10 @@ void loop()
 		page_num = meter_i;
 		break;
 	case meter_i:
-		myGLCD.setColor(255, 255, 255);
+		myGLCD.setColor(WHITE);
 		if (hex_data[39] != 0)
 		{
-			myGLCD.setColor(255, 255, 255);
+			myGLCD.setColor(WHITE);
 			myGLCD.fillRect(247, 53, 248, 54); // hz point
 		}
 		else
@@ -3463,7 +3681,7 @@ void loop()
 		}
 		if (hex_data[40] != 0)
 		{
-			myGLCD.setColor(255, 255, 255);
+			myGLCD.setColor(WHITE);
 			myGLCD.fillRect(247, 111, 248, 112); // hz point
 		}
 		else
@@ -3473,7 +3691,7 @@ void loop()
 		}
 		if (hex_data[41] != 0)
 		{
-			myGLCD.setColor(255, 255, 255);
+			myGLCD.setColor(WHITE);
 			myGLCD.fillRect(247, 169, 248, 170); // hz point
 		}
 		else
@@ -3496,19 +3714,19 @@ void loop()
 		break;
 	case control:
 		myGLCD.setFont(BigFont);
-		myGLCD.fillScr(255, 255, 255);
-		myGLCD.setColor(60, 60, 60);
+		myGLCD.fillScr(WHITE);
+		myGLCD.setColor(SOFT_GRAY);
 		myGLCD.fillRect(0, 0, 319, 109);
 		myGLCD.setColor(158, 158, 158);
 		myGLCD.fillRect(5, 5, 314, 52);
 		myGLCD.fillRect(5, 57, 314, 104);
 		myGLCD.setColor(116, 175, 46);
 		myGLCD.fillRect(200, 185, 310, 235);
-		myGLCD.setColor(0, 0, 0);
+		myGLCD.setColor(BLACK);
 		myGLCD.drawRect(200, 185, 310, 235);
 
-		myGLCD.setBackColor(255, 255, 255);
-		myGLCD.setColor(0, 0, 0);
+		myGLCD.setBackColor(WHITE);
+		myGLCD.setColor(BLACK);
 		myGLCD.print(":", 83, 123);
 		myGLCD.print(":", 83, 152);
 		myGLCD.print(":", 83, 181);
@@ -3521,7 +3739,7 @@ void loop()
 
 		if (language == 1)
 		{
-			myGLCD.setColor(255, 255, 255);
+			myGLCD.setColor(WHITE);
 			myGLCD.fillRect(33, 16, 186, 40);
 			myGLCD.fillRect(33, 68, 186, 92);
 			myFiles.load(18, 123, 64, 16, "han/measure/vdc_m.RAW");
@@ -3539,12 +3757,12 @@ void loop()
 			myGLCD.print("INV", 35, 181);
 			myGLCD.print("OUT", 35, 210);
 
-			myGLCD.setBackColor(255, 255, 255);
+			myGLCD.setBackColor(WHITE);
 			myGLCD.print("UPS SYSTEM", 20, 21);
 			myGLCD.print("UPS SYSTEM", 20, 73);
 
 			myGLCD.setBackColor(116, 175, 46);
-			myGLCD.setColor(255, 255, 255);
+			myGLCD.setColor(WHITE);
 			myGLCD.print("ESC", 232, 203);
 		}
 
@@ -3566,10 +3784,10 @@ void loop()
 			}
 			else
 			{
-				myGLCD.setColor(0, 0, 0);
+				myGLCD.setColor(BLACK);
 				myGLCD.setBackColor(208, 208, 208);
 				myGLCD.print("ON", 252, 21);
-				myGLCD.setColor(255, 255, 255);
+				myGLCD.setColor(WHITE);
 				myGLCD.setBackColor(216, 31, 16);
 				myGLCD.print("OFF", 244, 73);
 			}
@@ -3587,15 +3805,15 @@ void loop()
 			}
 			else
 			{
-				myGLCD.setColor(255, 255, 255);
+				myGLCD.setColor(WHITE);
 				myGLCD.setBackColor(216, 31, 16);
 				myGLCD.print("ON", 252, 21);
-				myGLCD.setColor(0, 0, 0);
+				myGLCD.setColor(BLACK);
 				myGLCD.setBackColor(208, 208, 208);
 				myGLCD.print("OFF", 244, 73);
 			}
 		}
-		myGLCD.setColor(255, 255, 255);
+		myGLCD.setColor(WHITE);
 		myGLCD.drawRect(224, 7, 312, 50);
 		myGLCD.drawRect(224, 59, 312, 102);
 		page_num = control_i;
@@ -3619,7 +3837,7 @@ void loop()
 		break;
 	case alarm1_i:
 		alarm_set();
-		myGLCD.setColor(255, 255, 255);
+		myGLCD.setColor(WHITE);
 		myGLCD.setFont(BigFont);
 		myGLCD.setBackColor(116, 175, 46);
 		if (language == 1)
@@ -3633,7 +3851,7 @@ void loop()
 		break;
 	case alarm2_i:
 		alarm_set();
-		myGLCD.setColor(255, 255, 255);
+		myGLCD.setColor(WHITE);
 		myGLCD.setFont(BigFont);
 		myGLCD.setBackColor(116, 175, 46);
 		if (language == 1)
@@ -3647,7 +3865,7 @@ void loop()
 		break;
 	case alarm3_i:
 		alarm_set();
-		myGLCD.setColor(255, 255, 255);
+		myGLCD.setColor(WHITE);
 		myGLCD.setFont(BigFont);
 		myGLCD.setBackColor(116, 175, 46);
 		if (language == 1)
@@ -3661,7 +3879,7 @@ void loop()
 		eeprom_address_l = dueFlashStorage.read(4095);
 		eeprom_address = (eeprom_address_l & 0x00ff) | ((eeprom_address_h << 8) & 0xff00);
 		z = eeprom_address;
-		myGLCD.setColor(255, 255, 255);
+		myGLCD.setColor(WHITE);
 		myGLCD.fillRect(0, 40, 319, 189);
 		y11 = 12;
 		eeprom_history();
@@ -3671,7 +3889,7 @@ void loop()
 	case history_next:
 		background_history();
 		y11 = 12;
-		myGLCD.setColor(255, 255, 255);
+		myGLCD.setColor(WHITE);
 		myGLCD.fillRect(0, 40, 319, 189);
 		eeprom_history();
 		page_num = history_i;
@@ -3679,7 +3897,7 @@ void loop()
 	case history_i:
 		break;
 	case timeset:
-		myGLCD.fillScr(255, 255, 255);
+		myGLCD.fillScr(WHITE);
 		myGLCD.setColor(50, 50, 50);
 		myGLCD.fillRoundRect(20, 20, 104, 90);
 		myGLCD.fillRoundRect(118, 20, 202, 90);
@@ -3687,7 +3905,7 @@ void loop()
 		myGLCD.fillRoundRect(20, 104, 104, 174);
 		myGLCD.fillRoundRect(118, 104, 202, 174);
 		myGLCD.fillRoundRect(216, 104, 300, 174);
-		myGLCD.setColor(0, 0, 0);
+		myGLCD.setColor(BLACK);
 		myGLCD.drawRoundRect(20, 20, 104, 90);
 		myGLCD.drawRoundRect(118, 20, 202, 90);
 		myGLCD.drawRoundRect(216, 20, 300, 90);
@@ -3695,7 +3913,7 @@ void loop()
 		myGLCD.drawRoundRect(118, 104, 202, 174);
 		myGLCD.drawRoundRect(216, 104, 300, 174);
 		myGLCD.setFont(BigFont);
-		myGLCD.setColor(255, 255, 255);
+		myGLCD.setColor(WHITE);
 		myGLCD.drawLine(25, 44, 99, 44);
 		myGLCD.drawLine(123, 44, 197, 44);
 		myGLCD.drawLine(221, 44, 295, 44);
@@ -3705,7 +3923,7 @@ void loop()
 
 		myGLCD.setColor(116, 175, 46);
 		myGLCD.fillRect(200, 185, 310, 235);
-		myGLCD.setColor(0, 0, 0);
+		myGLCD.setColor(BLACK);
 		myGLCD.drawRect(200, 185, 310, 235);
 
 		if (language == 1)
@@ -3720,7 +3938,7 @@ void loop()
 		}
 		else
 		{
-			myGLCD.setColor(255, 255, 255);
+			myGLCD.setColor(WHITE);
 			myGLCD.setBackColor(50, 50, 50);
 			myGLCD.print("YEAR", 30, 25);
 			myGLCD.print("MONTH", 120, 25);
@@ -3754,7 +3972,7 @@ void loop()
 		else
 		{
 			myGLCD.setFont(Retro);
-			myGLCD.setColor(0, 0, 0);
+			myGLCD.setColor(BLACK);
 			myGLCD.setBackColor(248, 111, 30);
 			myGLCD.print("MAIN", 24, 212);
 			myGLCD.print("NEXT", 104, 212);
@@ -3763,8 +3981,8 @@ void loop()
 		}
 
 		myGLCD.setFont(BigFont);
-		myGLCD.setColor(0, 0, 0);
-		myGLCD.setBackColor(255, 255, 255);
+		myGLCD.setColor(BLACK);
+		myGLCD.setBackColor(WHITE);
 		if (language == 1)
 		{
 			myFiles.load(25, 12, 64, 16, "han/measure/input_m.RAW");
@@ -3776,7 +3994,7 @@ void loop()
 			myGLCD.print("INVERTER", 20, 108);
 		}
 		myGLCD.setBackColor(60, 60, 60);
-		myGLCD.setColor(255, 255, 255);
+		myGLCD.setColor(WHITE);
 		myGLCD.print("V", 104, 36);
 		myGLCD.print("A", 244, 36);
 		myGLCD.print("V", 104, 132);
@@ -3805,7 +4023,7 @@ void loop()
 		else
 		{
 			myGLCD.setFont(Retro);
-			myGLCD.setColor(0, 0, 0);
+			myGLCD.setColor(BLACK);
 			myGLCD.setBackColor(248, 111, 30);
 			myGLCD.print("MAIN", 24, 212);
 			myGLCD.print("PREW", 104, 212);
@@ -3813,8 +4031,8 @@ void loop()
 			myGLCD.print("ESC", 268, 212);
 		}
 		myGLCD.setFont(BigFont);
-		myGLCD.setColor(0, 0, 0);
-		myGLCD.setBackColor(255, 255, 255);
+		myGLCD.setColor(BLACK);
+		myGLCD.setBackColor(WHITE);
 		if (language == 1)
 		{
 			myFiles.load(25, 12, 64, 16, "han/measure/battery_m.RAW");
@@ -3827,7 +4045,7 @@ void loop()
 			myGLCD.print("OUTPUT    DC LINK", 20, 108);
 		}
 		myGLCD.setBackColor(60, 60, 60);
-		myGLCD.setColor(255, 255, 255);
+		myGLCD.setColor(WHITE);
 		myGLCD.print("V", 104, 36);
 		myGLCD.print("A", 244, 36);
 		myGLCD.print("A", 104, 132);
@@ -3845,22 +4063,22 @@ void loop()
 		position2(62, 212, 161);
 		break;
 	case offset:
-		myGLCD.fillScr(255, 255, 255);
+		myGLCD.fillScr(WHITE);
 		myGLCD.setFont(BigFont);
-		myGLCD.setBackColor(255, 255, 255);
-		myGLCD.setColor(0, 0, 0);
+		myGLCD.setBackColor(WHITE);
+		myGLCD.setColor(BLACK);
 		myGLCD.print("IN  V&A", 15, 12);
 		myGLCD.print("VDC LINK", 15, 52);
 		myGLCD.print("BAT V&A", 15, 92);
 		myGLCD.print("INV V&A", 15, 132);
 		myGLCD.print("OUT V&A", 15, 172);
 		/*****menu******/
-		myGLCD.setColor(248, 111, 30);
+		myGLCD.setColor(ORANGE);
 		myGLCD.fillRect(1, 200, 79, 238);
 		myGLCD.fillRect(81, 200, 159, 238);
 		myGLCD.fillRect(161, 200, 239, 238);
 		myGLCD.fillRect(241, 200, 318, 238);
-		myGLCD.setColor(30, 30, 30);
+		myGLCD.setColor(DARK_GRAY_2);
 		myGLCD.drawRect(1, 200, 79, 238);
 		myGLCD.drawRect(81, 200, 159, 238);
 		myGLCD.drawRect(161, 200, 239, 238);
@@ -3873,7 +4091,7 @@ void loop()
 		else
 		{
 			myGLCD.setFont(Retro);
-			myGLCD.setColor(0, 0, 0);
+			myGLCD.setColor(BLACK);
 			myGLCD.setBackColor(248, 111, 30);
 			myGLCD.print("MAIN", 24, 212);
 			myGLCD.print("ESC", 268, 212);

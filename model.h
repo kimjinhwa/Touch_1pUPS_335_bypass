@@ -1,7 +1,7 @@
 
 void ac_model(int x_line, int y_line)
 {
-	myGLCD.setColor(255, 255, 255);
+	myGLCD.setColor(WHITE);
 	myGLCD.drawCircle(x_line,y_line,5);
 	myGLCD.drawCircle(x_line,y_line,4);
 	myGLCD.drawCircle((x_line+10),y_line,5);
