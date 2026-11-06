@@ -1,2 +1,6 @@
+upload/
 *.bak
+build/
+*.elf
+*.map
 

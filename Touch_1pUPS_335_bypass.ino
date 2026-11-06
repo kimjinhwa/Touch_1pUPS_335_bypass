@@ -2902,9 +2902,20 @@ void setup()
 		dueFlashStorage.write(4098, 0);
 	}
 	intro_type = dueFlashStorage.read(4098);
-	if((intro_type == 1) || (intro_type == 3)) {
-		flash.begin();
-		sd.begin(SD_CHIP_SELECT, SPI_FULL_SPEED);
+	Serial.print("ok 2 intro_type=");
+	Serial.println(intro_type);
+	if((intro_type == 1) || (intro_type == 3)) 
+	{
+		// flash.begin() hangs if SPI flash is missing/busy (BUSY_TIMEOUT ~16 min).
+		// This sketch never uses flash after begin(); keep CS high so it stays off the SPI bus.
+		pinMode(87, OUTPUT);
+		digitalWrite(87, HIGH);
+		if (!sd.begin(SD_CHIP_SELECT, SPI_HALF_SPEED)) {
+			Serial.println("SD HALF fail, retry QUARTER");
+			if (!sd.begin(SD_CHIP_SELECT, SPI_QUARTER_SPEED)) {
+				Serial.println("SD begin fail");
+			}
+		}
 	}
 
 	myGLCD.fillScr(WHITE);
