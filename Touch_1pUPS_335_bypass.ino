@@ -1,17 +1,15 @@
 #include <SPI.h> // needed for Arduino versions later than 0018
 #include <UIPEthernet.h>
 #include <UIPUDP.h> // UDP library from: bjoern@cs.stanford.edu 12/30/2008
-#include <SdFat.h>
 #include <UTFT.h>
 #include <URTouch.h>
 #include <UTFT_Buttons.h>
-#include <UTFT_SdRaw.h>
 #include <DueTimer.h>
 #include <RTCDue.h>
-#include <SPIMemory.h>
 #include "watchdog.cpp"
 #include <DueFlashStorage.h>
 #include <math.h>
+#include "Storage.h"
 //#include "Arduino_GFX.h"
 
 #define GREEN 33, 184, 3
@@ -39,7 +37,6 @@
 #endif
 
 #define WDT_KEY (0xA5)
-#define SD_CHIP_SELECT 78 // SD chip select pin
 
 #define intro_set 0
 #define intro_set_i 100
@@ -99,12 +96,23 @@
 #define minute_keypad 85
 #define second_keypad 86
 
+#define HIST_REC 7
+#define HIST_MAX 500
+#define HIST_SPAN (HIST_REC * HIST_MAX)
+#define HIST_PAGE 4
+#define HIST_WRAP_ADDR 4093
+#define HIST_PTR_H 4094
+#define HIST_PTR_L 4095
+
 void tx_read();
 void alarm_tx();
 void data_tx();
 void tx_write();
 void interrupt();
 void touch_read();
+void histLoadPtr();
+int histCount();
+int histRecAddr(int fromNewest);
 void eeprom_history();
 void eeprom_write();
 void eeprom_set();
@@ -129,20 +137,20 @@ void waitForIt(int x1, int y11, int x2, int y2);
 void ac_model(int x_line, int y_line);
 
 RTCDue rtc(XTAL);
-SdFat sd;
-ArduinoOutStream cout(Serial);
 
 DueFlashStorage dueFlashStorage;
 
-File myFile;
-// UTFT    myGLCD(TFT01_70,38,39,40,41);	//TFT set
-// UTFT    myGLCD(ITDB50,38,39,40,41);	//TFT set
 UTFT myGLCD(ILI9327, 38, 39, 40, 41); // TFT set
 URTouch myTouch(6, 5, 4, 3, 2);		  // Touch set
 
-SPIFlash flash(87);
-
+#ifdef USE_SPI_FLASH
+GD25Q80 extFlash(FLASH_CHIP_SELECT);
+FlashImagePack imagePack;
+UTFT_FlashRaw myFiles(&myGLCD, &imagePack);
+#else
+SdFat sd;
 UTFT_SdRaw myFiles(&myGLCD);
+#endif
 UTFT_Buttons myButtons(&myGLCD, &myTouch);
 
 /* Change these values to set the current initial time */
@@ -180,6 +188,8 @@ int y1_delete;
 int input_set_data, input_set_data_l, input_set_data_h, set_address;
 
 int eeprom_address, eeprom_address_h, eeprom_address_l, eeprom_plus;
+uint8_t hist_wrapped;
+int hist_view;
 
 int buzz_snmp = 0, buzz_snmp_old = 0;
 
@@ -495,6 +505,9 @@ void tx_write()
 	Serial1.write(Scic_Tx_Frame_Buf, 11);
 	//		Serial1.flush();
 }
+#ifndef NO_SCREEN_SAVER
+#define SCREEN_SAVER 600
+#endif
 void interrupt()
 {
 
@@ -526,13 +539,15 @@ void interrupt()
 	{
 		timer1000ms = 0;
 		dis_lock++;
-		if (dis_lock > 600)
+#ifdef SCREEN_SAVER
+		if (dis_lock > SCREEN_SAVER)
 		{
-			if (dis_lock == 601)
+			if (dis_lock == SCREEN_SAVER + 1)
 				page_num = black;
 			if (dis_lock > 65000)
-				dis_lock = 602;
+				dis_lock = SCREEN_SAVER + 2;
 		}
+#endif
 	}
 }
 
@@ -902,8 +917,12 @@ void touch_read()
 			if ((y >= 0) && (y <= 10) && (x >= 0) && (x <= 10))
 			{
 				waitForIt(0, 0, 10, 10);
-				dueFlashStorage.write(4094, 0);
-				dueFlashStorage.write(4095, 0);
+				dueFlashStorage.write(HIST_WRAP_ADDR, 0);
+				dueFlashStorage.write(HIST_PTR_H, 0);
+				dueFlashStorage.write(HIST_PTR_L, 0);
+				hist_wrapped = 0;
+				eeprom_address = 0;
+				hist_view = 0;
 			}
 			//    	  		}
 			break;
@@ -1163,24 +1182,13 @@ void touch_read()
 			if ((y >= 200) && (y <= 238) && (x >= 81) && (x <= 159))
 			{
 				waitForIt(81, 200, 159, 238);
-				eeprom_plus = 0;
-				if (z == 0)
+				if (hist_view >= HIST_PAGE)
 				{
-					eeprom_plus = eeprom_address % 28;
-					if (eeprom_plus == 0)
-						z = z + 56 + eeprom_plus;
-					else
-						z = z + 28 + eeprom_plus;
-				}
-				else
-					z = z + 56 + eeprom_plus;
-				if (z < (eeprom_address + 1))
-				{
+					hist_view -= HIST_PAGE;
 					page_num = history_next;
 				}
 				else
 				{
-					z = eeprom_address - 28;
 					myGLCD.setColor(DARK_GRAY_2);
 					myGLCD.drawRect(81, 200, 159, 238);
 				}
@@ -1188,9 +1196,10 @@ void touch_read()
 			if ((y >= 200) && (y <= 238) && (x >= 161) && (x <= 239))
 			{
 				waitForIt(161, 200, 239, 238);
-				if (z > 0)
+				histLoadPtr();
+				if (hist_view + HIST_PAGE < histCount())
 				{
-					//									z+=4;
+					hist_view += HIST_PAGE;
 					y11 = 12;
 					page_num = history_next;
 				}
@@ -1262,39 +1271,75 @@ void touch_read()
 		myTouch.InitTouch();
 	}
 }
+void histLoadPtr()
+{
+	eeprom_address_h = dueFlashStorage.read(HIST_PTR_H);
+	eeprom_address_l = dueFlashStorage.read(HIST_PTR_L);
+	eeprom_address = (eeprom_address_l & 0x00ff) | ((eeprom_address_h << 8) & 0xff00);
+	hist_wrapped = dueFlashStorage.read(HIST_WRAP_ADDR);
+	if (hist_wrapped != 1)
+		hist_wrapped = 0;
+	if (eeprom_address > (HIST_SPAN - 1))
+	{
+		eeprom_address = 0;
+		dueFlashStorage.write(HIST_PTR_H, 0);
+		dueFlashStorage.write(HIST_PTR_L, 0);
+	}
+}
+
+int histCount()
+{
+	if (hist_wrapped)
+		return HIST_MAX;
+	return eeprom_address / HIST_REC;
+}
+
+int histRecAddr(int fromNewest)
+{
+	int end = eeprom_address;
+	if ((end == 0) && hist_wrapped)
+		end = HIST_SPAN;
+	int addr = end - (fromNewest + 1) * HIST_REC;
+	if (addr < 0)
+		addr += HIST_SPAN;
+	return addr;
+}
+
 void eeprom_history()
 {
 
 	myGLCD.setFont(Retro);
 	myGLCD.setBackColor(WHITE);
 	myGLCD.setColor(240, 10, 30);
-	if (z != 0)
+	int count = histCount();
+	for (int history_line = 0; history_line < HIST_PAGE; history_line++)
 	{
-		for (int history_line = 0; history_line < 4; history_line++)
+		int idx = hist_view + history_line;
+		if (idx >= count)
+			break;
 		{
-			if (z < (eeprom_address + 1))
-			{ 
+				int rec = histRecAddr(idx);
 				y11 += 22;
 				myGLCD.setColor(50, 50, 50);
-				see_eeprom = dueFlashStorage.read(z - 7);
+				see_eeprom = dueFlashStorage.read(rec);
 				see_eeprom += 2000;
 				myGLCD.print(String(see_eeprom), 5, y11);
 				myGLCD.print("/", 40, y11);
-				see_eeprom = dueFlashStorage.read(z - 6);
+				see_eeprom = dueFlashStorage.read(rec + 1);
 				myGLCD.print(String(see_eeprom), 50, y11);
 				myGLCD.print("/", 67, y11);
-				see_eeprom = dueFlashStorage.read(z - 5);
+				see_eeprom = dueFlashStorage.read(rec + 2);
 				myGLCD.print(String(see_eeprom), 80, y11);
 				myGLCD.print("/", 99, y11);
-				see_eeprom = dueFlashStorage.read(z - 4);
+				see_eeprom = dueFlashStorage.read(rec + 3);
 				myGLCD.print(String(see_eeprom), 127, y11);
 				myGLCD.print(":", 146, y11);
-				see_eeprom = dueFlashStorage.read(z - 3);
+				see_eeprom = dueFlashStorage.read(rec + 4);
 				myGLCD.print(String(see_eeprom), 154, y11);
 				myGLCD.print(":", 173, y11);
-				see_eeprom = dueFlashStorage.read(z - 2);
+				see_eeprom = dueFlashStorage.read(rec + 5);
 				myGLCD.print(String(see_eeprom), 181, y11);
-				see_eeprom = dueFlashStorage.read(z - 1);
+				see_eeprom = dueFlashStorage.read(rec + 6);
 				y11 += 20;
 
 				myGLCD.setColor(230, 0, 0);
@@ -1423,21 +1468,13 @@ void eeprom_history()
 					else if (see_eeprom == 29)
 						myGLCD.print("EEPROM Error", 20, y11);
 				}
-				z = z - 7;
-				if (z == 0)
-					break;
-				//						y11+=5
-			}
 		}
 	}
-	//	y11=18;
 	page_num = history_i;
 }
 void eeprom_write()
 {
-	eeprom_address_h = dueFlashStorage.read(4094);
-	eeprom_address_l = dueFlashStorage.read(4095);
-	eeprom_address = (eeprom_address_l & 0x00ff) | ((eeprom_address_h << 8) & 0xff00);
+	histLoadPtr();
 	dueFlashStorage.write(eeprom_address, (rtc_year - 2000));
 	dueFlashStorage.write(eeprom_address + 1, rtc_month);
 	dueFlashStorage.write(eeprom_address + 2, rtc_day);
@@ -1445,17 +1482,18 @@ void eeprom_write()
 	dueFlashStorage.write(eeprom_address + 4, rtc_minute);
 	dueFlashStorage.write(eeprom_address + 5, rtc_second);
 	dueFlashStorage.write(eeprom_address + 6, eeprom_data);
-	eeprom_address += 7;
+	eeprom_address += HIST_REC;
 
-	if (eeprom_address > 3499)
-	{ //||(eeprom_address==(EEPROM.length()-1))||(eeprom_address==EEPROM.length()-2) 500개
+	if (eeprom_address > (HIST_SPAN - 1))
+	{
 		eeprom_address = 0;
+		hist_wrapped = 1;
+		dueFlashStorage.write(HIST_WRAP_ADDR, 1);
 	}
 	eeprom_address_h = (eeprom_address >> 8) & 0xff;
 	eeprom_address_l = (eeprom_address & 0xff);
-	dueFlashStorage.write(4094, eeprom_address_h);
-	dueFlashStorage.write(4095, eeprom_address_l);
-	//	eeprom_address+=3;
+	dueFlashStorage.write(HIST_PTR_H, eeprom_address_h);
+	dueFlashStorage.write(HIST_PTR_L, eeprom_address_l);
 }
 void eeprom_set()
 {
@@ -2882,9 +2920,16 @@ void ac_model(int x_line, int y_line)
 }
 void setup()
 {
+#ifdef USE_SPI_FLASH
+	Serial.begin(115200);
+	Serial1.begin(9600);
+	delay(300);
+	storageBegin();
+#else
 	Serial.begin(9600);
 	Serial1.begin(9600);
-	Serial.println("ok");
+#endif
+	Serial.println("ok 1");
 	myGLCD.InitLCD();
 	myGLCD.clrScr();
 	rtc.begin();
@@ -2904,19 +2949,9 @@ void setup()
 	intro_type = dueFlashStorage.read(4098);
 	Serial.print("ok 2 intro_type=");
 	Serial.println(intro_type);
-	if((intro_type == 1) || (intro_type == 3)) 
-	{
-		// flash.begin() hangs if SPI flash is missing/busy (BUSY_TIMEOUT ~16 min).
-		// This sketch never uses flash after begin(); keep CS high so it stays off the SPI bus.
-		pinMode(87, OUTPUT);
-		digitalWrite(87, HIGH);
-		if (!sd.begin(SD_CHIP_SELECT, SPI_HALF_SPEED)) {
-			Serial.println("SD HALF fail, retry QUARTER");
-			if (!sd.begin(SD_CHIP_SELECT, SPI_QUARTER_SPEED)) {
-				Serial.println("SD begin fail");
-			}
-		}
-	}
+#ifndef USE_SPI_FLASH
+	storageBegin();
+#endif
 
 	myGLCD.fillScr(WHITE);
 	myGLCD.setColor(BLACK);
@@ -2988,14 +3023,7 @@ void setup()
 	myGLCD.print("Y", 256, 160);
 	delay(1000);
 	myTouch.calibrateRead();
-	eeprom_address_h = dueFlashStorage.read(4094);
-	eeprom_address_l = dueFlashStorage.read(4095);
-	eeprom_address = (eeprom_address_l & 0x00ff) | ((eeprom_address_h << 8) & 0xff00);
-	if (eeprom_address > 3499)
-	{
-		dueFlashStorage.write(4094, 0);
-		dueFlashStorage.write(4095, 0);
-	}
+	histLoadPtr();
 	Serial.println("Serial bps 9600 start");
 	Timer3.attachInterrupt(interrupt).start(1000);
 	setupWatchDog();
@@ -3886,10 +3914,8 @@ void loop()
 		break;
 	case history:
 		background_history();
-		eeprom_address_h = dueFlashStorage.read(4094);
-		eeprom_address_l = dueFlashStorage.read(4095);
-		eeprom_address = (eeprom_address_l & 0x00ff) | ((eeprom_address_h << 8) & 0xff00);
-		z = eeprom_address;
+		histLoadPtr();
+		hist_view = 0;
 		myGLCD.setColor(WHITE);
 		myGLCD.fillRect(0, 40, 319, 189);
 		y11 = 12;
